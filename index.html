@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Blocked Ports Checker</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Automatically Check Blocked Ports on Your IP</h1>
+        <p id="ip">Fetching your IP...</p>
+        <p>Scanning common ports: 80, 443, 22, 21, 25, 3389, 8080, 5900, 445, 139</p>
+        <div id="results">Scanning...</div>
+    </div>
+    <script>
+        const commonPorts = [80, 443, 22, 21, 25, 3389, 8080, 5900, 445, 139];
+
+        async function getIP() {
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                const data = await res.json();
+                document.getElementById('ip').innerText = 'Your IP: ' + data.ip;
+                return data.ip;
+            } catch (e) {
+                document.getElementById('ip').innerText = 'Could not fetch IP.';
+                return null;
+            }
+        }
+
+        async function checkPort(target, port, timeout = 1000) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                let called = false;
+                img.onerror = () => {
+                    if (called) return;
+                    called = true;
+                    img.src = '';
+                    resolve(true); // open
+                };
+                img.onload = img.onerror;
+                img.src = 'http://' + target + ':' + port + '/' + Math.random();
+                setTimeout(() => {
+                    if (called) return;
+                    called = true;
+                    img.src = '';
+                    resolve(false); // closed
+                }, timeout);
+            });
+        }
+
+        async function scan() {
+            const ip = await getIP();
+            if (!ip) return;
+            const resultsDiv = document.getElementById('results');
+            let results = '<h2>Blocked (Closed) Ports:</h2><ul>';
+            let hasBlocked = false;
+            for (const port of commonPorts) {
+                const isOpen = await checkPort(ip, port);
+                if (!isOpen) {
+                    results += `<li>Port ${port}</li>`;
+                    hasBlocked = true;
+                }
+            }
+            if (!hasBlocked) {
+                results += '<li>None of the common ports are blocked.</li>';
+            }
+            results += '</ul>';
+            resultsDiv.innerHTML = results;
+        }
+
+        // Auto-scan on load
+        scan();
+    </script>
+</body>
+</html>
